@@ -8,16 +8,27 @@ function Chat() {
   const [text, setText] = useState("");
   const [messages, setMessages] = useState([]);
 
-  const { mutate } = useMutation({
-    mutationFn: (message) => generateChatResponse(message),
+  const { mutate, isPending, data } = useMutation({
+    mutationFn: (query) => generateChatResponse([...messages, query]),
+    onSuccess: (data) => {
+      if (!data) {
+        toast.error("Something went wrong");
+        return;
+      }
+      setMessages((prev) => [...prev, data]);
+    },
   });
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    mutate(text);
-    console.log("Text: ", text);
+    const query = { role: "user", content: text };
+    console.log("[Chat.jsx]: Before mutate. Value of query \n", query);
+    mutate(query);
+    setMessages((prev) => [...prev, query]);
+    setText("");
   };
 
+  console.log("Chat.jsx: ", messages);
   return (
     <div className="min-h-[calc(100vh-6rem)] grid grid-rows-[1fr,auto]">
       <div>
