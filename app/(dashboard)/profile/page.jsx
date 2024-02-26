@@ -5,6 +5,7 @@ function ProfilePage() {
     console.log("Text: ", text);
   };
   return (
+    // This is the Profile page. Currently being used as scratchpad
     <div className="min-h-[calc(100vh-6rem)] grid grid-rows-[1fr,auto]">
       <div className="max-w-3xl max-h-screen bg-slate-400">Profile Page</div>
       <div className="max-w-4xl max-h-screen bg-slate-300">Add comments1</div>
