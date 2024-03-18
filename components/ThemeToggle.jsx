@@ -4,8 +4,8 @@ import { BsMoonFill, BsSunFill } from "react-icons/bs";
 import { useState } from "react";
 
 const themes = {
-  winter: "winter",
-  dracula: "dracula",
+  winter: "nord",
+  dracula: "dim",
 };
 
 function ThemeToggle() {
