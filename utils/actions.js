@@ -6,6 +6,13 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+export function startTimer(value) {
+  console.log("startTimer invoked");
+  return value;
+}
+
+
+
 // Use Chat history
 //
 export const generateChatResponse = async (chatMessages) => {
