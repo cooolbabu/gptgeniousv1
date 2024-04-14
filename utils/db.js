@@ -59,7 +59,7 @@ export async function QueryDataFromSupabase(queryStr, format = "sqlRows") {
     //   sqlResult.rowCount === 0,
     //   sqlResult.rows.length
     // );
-    // console.log("QueryDataFromSupabase: sqlResult.rows ", sqlResult.rows);
+    // console.log("QueryDataFromSupabase: sqlResult.rows ", sqlResult);
     const jsonObject = JSON.stringify(sqlResult.rows);
     // console.log("QueryDataFromSupabase: jsonObject", jsonObject);
 
@@ -79,9 +79,9 @@ export async function QueryDataFromSupabase(queryStr, format = "sqlRows") {
 export async function InsertRowSupabase(queryStr, values) {
   try {
     const client = createSupabaseClient();
-    console.log("InsertRowSupabase: client", queryStr, values);
+    // console.log("InsertRowSupabase: client", queryStr, values);
     const sqlResult = await client.query(queryStr, values);
-    console.log("InsertRowSupabase: sqlResult ", sqlResult);
+    // console.log("InsertRowSupabase: sqlResult ", sqlResult);
     return sqlResult;
   } catch (error) {
     console.log(error);
@@ -92,9 +92,9 @@ export async function InsertRowSupabase(queryStr, values) {
 export async function UpdateRowSupabase(queryStr, values) {
   try {
     const client = createSupabaseClient();
-    console.log("UpdateRowSupabase: client", queryStr, values);
+    // console.log("UpdateRowSupabase: client", queryStr, values);
     const sqlResult = await client.query(queryStr, values);
-    console.log("UpdateRowSupabase: sqlResult ", sqlResult);
+    // console.log("UpdateRowSupabase: sqlResult ", sqlResult);
     return sqlResult;
   } catch (error) {
     console.log(error);

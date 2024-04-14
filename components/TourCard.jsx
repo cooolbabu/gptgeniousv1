@@ -2,10 +2,10 @@ import Link from "next/link";
 
 function TourCard({ tour }) {
   const { city, title, id, country } = tour;
-  console.log("TourCard: ", tour);
-  console.log("City: ", city);
-  console.log("Title: ", title);
-  console.log("ID: ", id);
+  // console.log("TourCard: ", tour);
+  // console.log("City: ", city);
+  // console.log("Title: ", title);
+  // console.log("ID: ", id);
 
   return (
     <Link href={`/tours/${id}`} className="card card-compact rounded-xl bg-base-100">

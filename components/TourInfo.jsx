@@ -4,10 +4,10 @@ function TourInfo({ tour }) {
   }
 
   const { title, description, stops } = tour;
-  console.log("TourInfo: ", tour);
-  console.log("Title: ", title);
-  console.log("Description: ", description);
-  console.log("Stops: ", stops);
+  // console.log("TourInfo: ", tour);
+  // console.log("Title: ", title);
+  // console.log("Description: ", description);
+  // console.log("Stops: ", stops);
 
   if (!title) {
     return <h2>No tour found...</h2>;

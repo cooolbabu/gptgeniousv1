@@ -1,6 +1,8 @@
 "use server";
 import OpenAI from "openai";
-import { QueryDataFromSupabase, InsertRowSupabase, UpdateRowSupabase } from "./db";
+
+import { QueryDataFromSupabase, InsertRowSupabase, UpdateRowSupabase } from "./db.js";
+import { revalidatePath } from "next/cache";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -9,7 +11,7 @@ const openai = new OpenAI({
 // Use Chat history
 //
 export const generateChatResponse = async (chatMessages) => {
-  console.log("[actions.js] Chatmessages: ", chatMessages);
+  // console.log("[actions.js] Chatmessages: ", chatMessages);
 
   try {
     const response = await openai.chat.completions.create({
@@ -18,9 +20,9 @@ export const generateChatResponse = async (chatMessages) => {
       temperature: 0,
     });
 
-    console.log(response.choices[0].message);
-    console.log("Returning from generateChatResponse");
-    return response.choices[0].message;
+    // console.log(response.choices[0].message);
+    // console.log("Returning from generateChatResponse");
+    return { message: response.choices[0].message, tokens: response.usage.total_tokens };
   } catch (error) {
     return null;
   }
@@ -36,7 +38,7 @@ export const generateChatResponse = async (chatMessages) => {
  * @param {Object} options - The options for generating the tour response.
  * @param {string} options.city - The city for which the tour response is generated.
  * @param {string} options.country - The country in which the city is located.
- * @returns {Object | null} The generated one-day tour response in JSON format,
+ * @returns {Object | null} The generated one-day tour response in JSON format { tour: tourData.tour, tokens: response.usage.total_tokens },
  * or { "tour": null } if the city cannot be found or doesn't meet the criteria.
  */
 export const generateTourResponse = async ({ city, country }) => {
@@ -71,8 +73,8 @@ If you can't find info on exact ${city}, or ${city} does not exist, or it's popu
     if (!tourData.tour) {
       return null;
     }
-
-    return tourData.tour;
+    // console.log("[actions.js] generateTourResponse: ", response);
+    return { tour: tourData.tour, tokens: response.usage.total_tokens };
   } catch (error) {
     console.log(error);
     return null;
@@ -89,7 +91,7 @@ If you can't find info on exact ${city}, or ${city} does not exist, or it's popu
 export const getExistingTour = async ({ city, country }) => {
   // Acquire a client from the pool
 
-  console.log("[actions.js] getExistingTour: ", city, country);
+  // console.log("[actions.js] getExistingTour: ", city, country);
 
   const sqlResult = await QueryDataFromSupabase(
     `SELECT * FROM gpt_genius_tours WHERE city='${city}' AND country='${country}'`
@@ -97,7 +99,7 @@ export const getExistingTour = async ({ city, country }) => {
 
   // SQL query result is an array of objects. Return the first object in the array. city and country are unique.
   if (sqlResult) {
-    console.log("[actions.js] getTourById: ", sqlResult[0]);
+    // console.log("[actions.js] getTourById: ", sqlResult[0]);
     return sqlResult[0];
   } else {
     return null;
@@ -105,12 +107,12 @@ export const getExistingTour = async ({ city, country }) => {
 };
 
 export const getTourById = async (tourId) => {
-  console.log("[actions.js] getTourById: ", tourId);
+  // console.log("[actions.js] getTourById: ", tourId);
   const sqlResult = await QueryDataFromSupabase(`SELECT * FROM gpt_genius_tours WHERE id='${tourId}'`);
 
   // SQL query result is an array of objects. Return the first object in the array. city and country are unique.
   if (sqlResult) {
-    console.log("[actions.js] getTourById: ", sqlResult[0]);
+    // console.log("[actions.js] getTourById: ", sqlResult[0]);
     return sqlResult[0];
   } else {
     return null;
@@ -118,11 +120,13 @@ export const getTourById = async (tourId) => {
 };
 
 /**
- * Retrieves all tours from the database.
+ * Retrieves all tours from the database searches on city or country.
  * @returns {Promise<Array<Object>>} - A promise that resolves to an array of tour objects.
  */
-export const getAllTours = async () => {
-  const sqlResult = await QueryDataFromSupabase(`SELECT * FROM gpt_genius_tours`);
+export const getAllTours = async (searchValue) => {
+  const sqlResult = await QueryDataFromSupabase(
+    `SELECT * FROM gpt_genius_tours WHERE city ILIKE '%${searchValue}%' OR country ILIKE '%${searchValue}%'`
+  );
   return sqlResult;
 };
 
@@ -148,14 +152,17 @@ export const createNewTour = async (tourData) => {
 /**
  * Retrieves the tokens for a given user ID.
  * @param {string} userId - The ID of the user.
- * @returns {Promise<number|null>} - A promise that resolves to the number of tokens for the user, or null if the user is not found.
+ * @returns {Promise<number|null>} - A promise that resolves to the number of tokens for the user, or null if the user is not found. {tokens: tokenValue}
  */
 export const getTokensByUserId = async (userId) => {
-  const sqlResult = await QueryDataFromSupabase(`SELECT tokens FROM gpt_genius_token WHERE id='${userId}'`);
-  if (sqlResult.length > 0) {
-    return sqlResult[0].tokens;
+  const sqlResult = await QueryDataFromSupabase(`SELECT tokens FROM gpt_genius_token WHERE user_id='${userId}'`);
+
+  // SQL query result is an array of objects. Return the first object in the array. city and country are unique.
+  if (sqlResult) {
+    // console.log("[actions.js] getTokensByUserId: ", sqlResult);
+    return sqlResult[0];
   } else {
-    return null;
+    return null; // User not found
   }
 };
 
@@ -169,116 +176,61 @@ export const getTokensByUserId = async (userId) => {
  * @returns {Promise<null>} - A promise that resolves to null.
  */
 export const insertTokenRow = async (tokenData) => {
-  const { user_id, first_name, last_name, email_address } = tokenData;
+  const { user_id, first_name, last_name, email_address, tokens } = tokenData;
   const queryStr = `
-    INSERT INTO gpt_genius_tokens (user_id, first_name, last_name, email_address)
-    VALUES ($1, $2, $3, $4)
+    INSERT INTO gpt_genius_token (user_id, first_name, last_name, email_address, tokens)
+    VALUES ($1, $2, $3, $4, $5)
     RETURNING *;
   `;
-  const sqlResult = await InsertRowSupabase(queryStr, [user_id, first_name, last_name, email_address]);
+  const sqlResult = await InsertRowSupabase(queryStr, [user_id, first_name, last_name, email_address, tokens]);
   return null;
 };
 
 /**
- * Retrieves the tokens for a given user ID. If the user ID does not exist, inserts a new record into the gpt_genius_tokens table.
- * @param {string} userId - The ID of the user.
- * @returns {Promise<number|null>} - A promise that resolves to the number of tokens for the user, or null if the user is not found.
+ * Retrieves existing tokens for a user or inserts new tokens if none exist.
+ *
+ * @param {Object} userData - The user data object.
+ * @param {string} userData.userId - The user ID.
+ * @param {string} userData.firstName - The user's first name.
+ * @param {string} userData.lastName - The user's last name.
+ * @param {string} userData.emailAddress - The user's email address.
+ * @returns {Array|null} - The existing tokens or null if new tokens were inserted.
  */
-export const getTokensOrInsertNew = async (userData) => {
+export const getTokensOrInsertNewuser = async (userData) => {
   const { userId, firstName, lastName, emailAddress } = userData;
-  const existingTokens = await getTokensByUserId(userId);
+  let existingTokens = await getTokensByUserId(userId);
+
+  // console.log("[actions.js] getTokensOrInsertNewuser: ", existingTokens, userId, firstName, lastName, emailAddress);
   if (existingTokens !== null) {
     return existingTokens;
   } else {
+    !existingTokens ? 0 : existingTokens;
     const tokenData = {
       user_id: userId,
       first_name: firstName, // Replace with actual first name
       last_name: lastName, // Replace with actual last name
       email_address: emailAddress, // Replace with actual email address
+      tokens: 1000, // Initial token amount
     };
     await insertTokenRow(tokenData);
     return null;
   }
 };
 
-// // This does not save Chat History
-// //
-// export const generateChatResponse = async (chatMessage) => {
-//   console.log("[actions.js] Chatmessage: ", chatMessage);
-
-//   const response = await openai.chat.completions.create({
-//     messages: [
-//       { role: "system", content: "you are a helpful assistant" },
-//       { role: "user", content: chatMessage },
-//     ],
-//     model: "gpt-3.5-turbo",
-//     temperature: 0,
-//   });
-
-//   console.log(response.choices[0].message);
-//   console.log("Returning from generateChatResponse");
-//   return "awesome";
-// };
-
-export async function getExistingTour({ city, country }) {
-  console.log("getExistingTour invoked");
-  return prisma.tour.findUnique({
-    where: {
-      city_country: {
-        city,
-        country,
-      },
-    },
-  });
-}
-
-export async function createNewTour(tour) {
-  console.log("createNewTour invoked");
-  return prisma.tour.create({ data: tour });
-}
-
-export async function getAllTours(searchTerm) {
-  console.log("getAllTours invoked");
-
-  try {
-    let whereCondition = {};
-    if (searchTerm && searchTerm.trim() !== "") {
-      whereCondition = {
-        city: {
-          contains: searchTerm,
-        },
-        country: {
-          contains: searchTerm,
-        },
-      };
-    }
-
-    const tours = await prisma.tour.findMany({
-      where: whereCondition,
-      orderBy: {
-        city: "asc",
-      },
-    });
-
-    return tours;
-  } catch (error) {
-    console.log(error);
-    return null;
-  }
-}
-export async function getSingleTour(id) {
-  console.log("getSingleTour invoked");
-
-  try {
-    const tour = await prisma.tour.findUnique({
-      where: {
-        id,
-      },
-    });
-
-    return tour;
-  } catch (error) {
-    console.log(error);
-    return null;
-  }
-}
+/**
+ * Reduces the number of tokens for a given user ID.
+ * @param {string} userId - The ID of the user.
+ * @param {number} amount - The amount of tokens to reduce.
+ * @returns {Promise<void>} - A promise that resolves when the tokens are successfully reduced.
+ */
+export const reduceTokensByUserId = async (userId, amount) => {
+  const queryStr = `
+    UPDATE gpt_genius_token
+    SET tokens = tokens - $1
+    WHERE user_id = $2
+    RETURNING tokens;
+  `;
+  const result = await UpdateRowSupabase(queryStr, [amount, userId]);
+  // console.log("[actions.js] reduceTokensByUserId: ", result);
+  revalidatePath("/profile");
+};

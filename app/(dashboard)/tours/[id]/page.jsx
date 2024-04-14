@@ -4,7 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 async function SingleTourPage({ params }) {
-  console.log("[page.jsx] SingleTourPage: ", params.id);
+  // console.log("[page.jsx] SingleTourPage: ", params.id);
   const tour = await getTourById(params.id);
   if (!tour) {
     redirect("/tours");

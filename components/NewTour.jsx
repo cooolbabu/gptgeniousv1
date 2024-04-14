@@ -1,12 +1,20 @@
 "use client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
+import { useAuth } from "@clerk/nextjs";
 import TourInfo from "./TourInfo";
-import { createNewTour, generateTourResponse, getExistingTour } from "@/utils/actions";
+import {
+  createNewTour,
+  generateTourResponse,
+  getExistingTour,
+  getTokensByUserId,
+  reduceTokensByUserId,
+} from "@/utils/actions";
 
 function NewTour() {
   // Access mutation state and functions
   const queryClient = useQueryClient();
+  const { userId } = useAuth();
   const {
     mutate,
     isPending,
@@ -15,18 +23,24 @@ function NewTour() {
     mutationFn: async (destination) => {
       const existingTour = await getExistingTour(destination);
       if (existingTour) {
-        console.log("Existing tour: ", existingTour);
+        // console.log("Existing tour: ", existingTour);
         return existingTour;
       }
-      console.log("No Tour found");
-      const newTour = await generateTourResponse(destination);
-      //const newTour = null;
-      console.log("New tour: ", newTour);
+      console.log("NewTour.jsx - No Tour found in database. Generating new tour.");
+      const currentTokens = await getTokensByUserId(userId);
+      if (currentTokens === null || currentTokens.tokens < 300) {
+        toast.error("Not enough tokens to generate a new tour");
+        return null;
+      }
 
-      if (newTour) {
-        await createNewTour(newTour);
+      const newTour = await generateTourResponse(destination);
+      // console.log("New tour: ", newTour);
+      await reduceTokensByUserId(userId, newTour.tokens);
+
+      if (newTour.tour) {
+        await createNewTour(newTour.tour);
         queryClient.invalidateQueries({ queryKey: "tours" });
-        return newTour;
+        return newTour.tour;
       } else {
         toast.error("No matching city found");
         return null;

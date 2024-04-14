@@ -2,29 +2,41 @@
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import toast from "react-hot-toast";
-import { generateChatResponse } from "@/utils/actions";
+import { generateChatResponse, getTokensByUserId, reduceTokensByUserId } from "@/utils/actions";
+import { useAuth } from "@clerk/nextjs";
 
 function Chat() {
   const [text, setText] = useState("");
   const [messages, setMessages] = useState([]);
+  const { userId } = useAuth();
 
   const { mutate, isPending, data } = useMutation({
-    mutationFn: (query) => generateChatResponse([...messages, query]),
-    onSuccess: (data) => {
-      if (!data) {
-        toast.error("Something went wrong");
-        return;
+    mutationFn: async (query) => {
+      // console.log("[Chat.jsx]: Mutation function called", query);
+      const currentTokens = await getTokensByUserId(userId);
+      if (currentTokens.tokens < 100) {
+        toast.error("You don't have enough tokens to ask a question.");
+        return null;
       }
-      setMessages((prev) => [...prev, data]);
+      const response = await generateChatResponse([...messages, query]);
+      if (!response) {
+        toast.error("Somrthing went wrong");
+        return null;
+      }
+      setMessages((prev) => [...prev, response.message]);
+      // console.log("[Chat.jsx]: After mutate. Value of message \n", messages);
+      // console.log("[Chat.jsx]: After mutate. Value of response \n", response);
+      const newTokens = await reduceTokensByUserId(userId, response.tokens);
+      toast.success(`You have ${newTokens.tokens} tokens left.`);
     },
   });
 
   const handleSubmit = (e) => {
     e.preventDefault();
     const query = { role: "user", content: text };
-    console.log("[Chat.jsx]: Before mutate. Value of query \n", query);
-    mutate(query);
+    // console.log("[Chat.jsx]: Before mutate. Value of query \n", query);
     setMessages((prev) => [...prev, query]);
+    mutate(query);
     setText("");
   };
 
@@ -59,11 +71,7 @@ function Chat() {
             required
             onChange={(e) => setText(e.target.value)}
           />
-          <button
-            className="btn btn-primary join-item"
-            type="submit"
-            disabled={isPending}
-          >
+          <button className="btn btn-primary join-item" type="submit" disabled={isPending}>
             {isPending ? "please wait.." : "ask question"}
           </button>
         </div>
