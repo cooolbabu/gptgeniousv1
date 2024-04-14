@@ -1,5 +1,5 @@
 import { SiOpenaigym } from "react-icons/si";
-import ThemeToggle from "./Themetoggle";
+import ThemeToggle from "./ThemeToggle";
 
 function SidebarHeader() {
   return (
