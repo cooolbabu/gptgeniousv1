@@ -219,3 +219,66 @@ export const getTokensOrInsertNew = async (userData) => {
 //   console.log("Returning from generateChatResponse");
 //   return "awesome";
 // };
+
+export async function getExistingTour({ city, country }) {
+  console.log("getExistingTour invoked");
+  return prisma.tour.findUnique({
+    where: {
+      city_country: {
+        city,
+        country,
+      },
+    },
+  });
+}
+
+export async function createNewTour(tour) {
+  console.log("createNewTour invoked");
+  return prisma.tour.create({ data: tour });
+}
+
+export async function getAllTours(searchTerm) {
+  console.log("getAllTours invoked");
+
+  try {
+    let whereCondition = {};
+    if (searchTerm && searchTerm.trim() !== "") {
+      whereCondition = {
+        city: {
+          contains: searchTerm,
+        },
+        country: {
+          contains: searchTerm,
+        },
+      };
+    }
+
+    const tours = await prisma.tour.findMany({
+      where: whereCondition,
+      orderBy: {
+        city: "asc",
+      },
+    });
+
+    return tours;
+  } catch (error) {
+    console.log(error);
+    return null;
+  }
+}
+export async function getSingleTour(id) {
+  console.log("getSingleTour invoked");
+
+  try {
+    const tour = await prisma.tour.findUnique({
+      where: {
+        id,
+      },
+    });
+
+    return tour;
+  } catch (error) {
+    console.log(error);
+    return null;
+  }
+}
